@@ -116,12 +116,12 @@ export const bananaApi = {
 
 export const authApi = {
   // Register a new user
-  register: async (username: string): Promise<AuthResponse> => {
+  register: async (username: string, password: string): Promise<AuthResponse> => {
     try {
       const response = await fetch(`${BACKEND_API_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username }),
+        body: JSON.stringify({ username, password }),
       });
 
       const data = await response.json();
@@ -141,12 +141,12 @@ export const authApi = {
   },
 
   // Login existing user
-  login: async (username: string): Promise<AuthResponse> => {
+  login: async (username: string, password: string): Promise<AuthResponse> => {
     try {
       const response = await fetch(`${BACKEND_API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username }),
+        body: JSON.stringify({ username, password }),
       });
 
       const data = await response.json();

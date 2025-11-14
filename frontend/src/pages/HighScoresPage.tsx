@@ -1,30 +1,43 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { JungleLayout } from '@/components/JungleLayout';
-import { WoodenPanel } from '@/components/WoodenPanel';
 import { Button } from '@/components/ui/button';
-import { Header } from '@/components/Header';
 import { useAuth } from '@/context/AuthContext';
+import { leaderboardApi, type LeaderboardEntry } from '@/services/api';
 
-interface LeaderboardEntry {
-  username: string;
-  score: number;
-  level: string;
-  date: string;
-}
+type DifficultyFilter = 'Easy' | 'Medium' | 'Hard';
 
 const HighScoresPage: React.FC = () => {
   const navigate = useNavigate();
-  const { username } = useAuth();
+  const { user } = useAuth();
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyFilter>('Easy');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const loadLeaderboard = () => {
-      const data = JSON.parse(localStorage.getItem('leaderboard') || '[]');
-      setLeaderboard(data);
+    const loadLeaderboard = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const response = await leaderboardApi.getTopScores(20, selectedDifficulty);
+        if (response.success) {
+          setLeaderboard(response.data.leaderboard);
+        } else {
+          setLeaderboard([]);
+          setError('Unable to load leaderboard right now.');
+        }
+      } catch (err) {
+        console.error('Error fetching leaderboard:', err);
+        setLeaderboard([]);
+        setError('Unable to load leaderboard right now.');
+      } finally {
+        setIsLoading(false);
+      }
     };
+
     loadLeaderboard();
-  }, []);
+  }, [selectedDifficulty]);
 
   const getMedalEmoji = (index: number) => {
     if (index === 0) return '🥇';
@@ -33,7 +46,8 @@ const HighScoresPage: React.FC = () => {
     return `${index + 1}.`;
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return '-';
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
@@ -46,8 +60,7 @@ const HighScoresPage: React.FC = () => {
   };
 
   return (
-    <JungleLayout>
-      <Header />
+    <JungleLayout showHeader>
       <div className="flex min-h-[calc(100vh-80px)] items-center justify-center p-4">
         <div className="w-full max-w-5xl space-y-8">
           {/* Title */}
@@ -60,17 +73,35 @@ const HighScoresPage: React.FC = () => {
             </p>
           </div>
 
+          {/* Difficulty Filter */}
+          <div className="flex justify-center gap-3">
+            {(['Easy', 'Medium', 'Hard'] as DifficultyFilter[]).map((level) => (
+              <Button
+                key={level}
+                variant={selectedDifficulty === level ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedDifficulty(level)}
+              >
+                {getLevelEmoji(level)} {level}
+              </Button>
+            ))}
+          </div>
+
           {/* Leaderboard Panel */}
-          <WoodenPanel>
-            <div className="space-y-8">
-              {leaderboard.length === 0 ? (
+          <div className="relative w-full rounded-[32px] bg-white/10 backdrop-blur-[18px] border border-white/15 shadow-[0_22px_55px_rgba(0,0,0,0.35)] px-10 py-12 md:px-12 md:py-14 lg:px-16 lg:py-16">
+            <div className="space-y-8 text-white/90">
+              {isLoading ? (
+                <div className="text-center py-12 text-sm text-foreground/60 animate-pulse">
+                  Loading leaderboard...
+                </div>
+              ) : leaderboard.length === 0 ? (
                 <div className="text-center space-y-6 py-12 animate-scale-in">
                   <div className="space-y-2">
                     <h3 className="text-xl md:text-2xl font-bold text-foreground">
-                      No Scores Yet
+                      {error ? 'Something went wrong' : 'No Scores Yet'}
                     </h3>
                     <p className="text-sm text-foreground/60">
-                      Be the first to play
+                      {error ? 'Please try again later.' : 'Be the first to play this difficulty.'}
                     </p>
                   </div>
                   <Button
@@ -92,8 +123,8 @@ const HighScoresPage: React.FC = () => {
                         <div className="bg-card/60 backdrop-blur-sm rounded-xl p-5 border border-border/20 shadow-md">
                           <p className="font-bold text-sm truncate">{leaderboard[1].username}</p>
                           <p className="text-primary text-xl font-bold mt-2">{leaderboard[1].score}</p>
-                          <p className="text-xs text-foreground/60 mt-2">
-                            {leaderboard[1].level}
+                          <p className="text-xs text-foreground/60 mt-2 flex items-center justify-center gap-1">
+                            {getLevelEmoji(leaderboard[1].level)} {leaderboard[1].level}
                           </p>
                         </div>
                       </div>
@@ -104,8 +135,8 @@ const HighScoresPage: React.FC = () => {
                         <div className="bg-gradient-to-br from-primary/20 to-primary/10 backdrop-blur-sm rounded-xl p-5 border border-primary/30 shadow-lg">
                           <p className="font-bold text-base truncate">{leaderboard[0].username}</p>
                           <p className="text-primary text-2xl font-bold mt-2">{leaderboard[0].score}</p>
-                          <p className="text-xs text-foreground/60 mt-2">
-                            {leaderboard[0].level}
+                          <p className="text-xs text-foreground/60 mt-2 flex items-center justify-center gap-1">
+                            {getLevelEmoji(leaderboard[0].level)} {leaderboard[0].level}
                           </p>
                         </div>
                       </div>
@@ -116,8 +147,8 @@ const HighScoresPage: React.FC = () => {
                         <div className="bg-card/60 backdrop-blur-sm rounded-xl p-5 border border-border/20 shadow-md">
                           <p className="font-bold text-sm truncate">{leaderboard[2].username}</p>
                           <p className="text-primary text-xl font-bold mt-2">{leaderboard[2].score}</p>
-                          <p className="text-xs text-foreground/60 mt-2">
-                            {leaderboard[2].level}
+                          <p className="text-xs text-foreground/60 mt-2 flex items-center justify-center gap-1">
+                            {getLevelEmoji(leaderboard[2].level)} {leaderboard[2].level}
                           </p>
                         </div>
                       </div>
@@ -142,7 +173,7 @@ const HighScoresPage: React.FC = () => {
                             <tr 
                               key={index}
                               className={`border-t border-border/10 transition-all duration-200 ${
-                                entry.username === username 
+                                entry.username === user?.username 
                                   ? 'bg-primary/10' 
                                   : 'hover:bg-accent/5'
                               }`}
@@ -152,7 +183,7 @@ const HighScoresPage: React.FC = () => {
                               </td>
                               <td className="px-4 md:px-6 py-4">
                                 <span className={`font-medium text-sm ${
-                                  entry.username === username ? 'text-primary' : ''
+                                  entry.username === user?.username ? 'text-primary' : ''
                                 }`}>
                                   {entry.username}
                                 </span>
@@ -161,12 +192,12 @@ const HighScoresPage: React.FC = () => {
                                 <span className="text-primary font-bold text-base">{entry.score}</span>
                               </td>
                               <td className="px-4 md:px-6 py-4 text-center">
-                                <span className="font-medium text-xs text-foreground/70">
-                                  {entry.level}
+                                <span className="font-medium text-xs text-foreground/70 flex items-center justify-center gap-1">
+                                  {getLevelEmoji(entry.level)} {entry.level}
                                 </span>
                               </td>
                               <td className="px-4 md:px-6 py-4 text-center text-xs text-foreground/50">
-                                {formatDate(entry.date)}
+                                {formatDate(entry.playedAt)}
                               </td>
                             </tr>
                           ))}
@@ -178,7 +209,7 @@ const HighScoresPage: React.FC = () => {
               )}
 
               {/* Action Buttons */}
-              <div className="grid grid-cols-2 gap-4 pt-6 border-t border-border/20">
+              <div className="grid grid-cols-2 gap-4 pt-6 border-t border-white/15">
                 <Button
                   variant="default"
                   size="lg"
@@ -188,7 +219,7 @@ const HighScoresPage: React.FC = () => {
                   Play Game
                 </Button>
                 <Button
-                  variant="outline"
+                  variant="default"
                   size="lg"
                   className="w-full"
                   onClick={() => navigate('/menu')}
@@ -197,7 +228,7 @@ const HighScoresPage: React.FC = () => {
                 </Button>
               </div>
             </div>
-          </WoodenPanel>
+          </div>
         </div>
       </div>
     </JungleLayout>

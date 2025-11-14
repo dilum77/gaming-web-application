@@ -8,13 +8,13 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 
 const LandingPage: React.FC = () => {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
 
   React.useEffect(() => {
-    if (isAuthenticated) {
+    if (!isLoading && isAuthenticated) {
       navigate('/menu');
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, isLoading, navigate]);
 
   return (
     <JungleLayout>
@@ -46,7 +46,7 @@ const LandingPage: React.FC = () => {
               Login
             </Button>
             <Button
-              variant="outline"
+              variant="default"
               size="xl"
               className="w-full"
               onClick={() => navigate('/register')}

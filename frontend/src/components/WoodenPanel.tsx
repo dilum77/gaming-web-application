@@ -8,26 +8,23 @@ interface WoodenPanelProps {
 
 export const WoodenPanel: React.FC<WoodenPanelProps> = ({ children, className }) => {
   return (
-    <div className={cn(
-      "rounded-2xl p-8 md:p-10 relative overflow-hidden",
-      "animate-scale-in",
-      "transition-all duration-300",
-      className
-    )}>
-      {/* Wooden texture */}
-      <img
-        src="/images/wooden_board.png"
-        alt=""
-        className="absolute inset-0 w-full h-full object-cover opacity-80"
-        aria-hidden="true"
-        onError={(event) => {
-          event.currentTarget.style.display = 'none';
-        }}
-      />
+    <div className={cn('flex items-center justify-center', className)}>
+      <div className="relative w-full max-w-[540px] md:max-w-[600px] lg:max-w-[660px] animate-scale-in transition-all duration-300">
+        <img
+          src="/images/ui/board2.png"
+          alt=""
+          className="pointer-events-none select-none w-full h-auto"
+          aria-hidden="true"
+          onError={(event) => {
+            event.currentTarget.style.display = 'none';
+          }}
+        />
 
-      {/* Content */}
-      <div className="relative z-10">
-        {children}
+        <div className="absolute inset-0 flex items-center justify-center px-12 py-14 md:px-16 md:py-16 lg:px-20 lg:py-20">
+          <div className="w-full max-w-[420px] md:max-w-[460px] lg:max-w-[480px]">
+            {children}
+          </div>
+        </div>
       </div>
     </div>
   );

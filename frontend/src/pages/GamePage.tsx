@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { JungleLayout } from '@/components/JungleLayout';
 import { WoodenPanel } from '@/components/WoodenPanel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Header } from '@/components/Header';
-import bananaApi, { PuzzleData } from '@/services/api';
+import bananaApi, { PuzzleData, leaderboardApi } from '@/services/api';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -22,16 +21,17 @@ import {
 type DifficultyLevel = 'easy' | 'medium' | 'hard';
 
 interface LevelConfig {
-  label: string;
+  label: 'Easy' | 'Medium' | 'Hard';
   time: number;
   pointsMultiplier: number;
   emoji: string;
+  lifelines: number;
 }
 
 const LEVEL_CONFIG: Record<DifficultyLevel, LevelConfig> = {
-  easy: { label: 'Easy', time: 60, pointsMultiplier: 1, emoji: '🍌' },
-  medium: { label: 'Medium', time: 45, pointsMultiplier: 1.5, emoji: '🐵' },
-  hard: { label: 'Hard', time: 30, pointsMultiplier: 2, emoji: '🔥' }
+  easy: { label: 'Easy', time: 60, pointsMultiplier: 1, emoji: '🍌', lifelines: 5 },
+  medium: { label: 'Medium', time: 45, pointsMultiplier: 1.5, emoji: '🐵', lifelines: 3 },
+  hard: { label: 'Hard', time: 30, pointsMultiplier: 2, emoji: '🔥', lifelines: 0 }
 };
 
 const GamePage: React.FC = () => {
@@ -45,9 +45,82 @@ const GamePage: React.FC = () => {
   const [showTimeoutDialog, setShowTimeoutDialog] = useState(false);
   const [showVictoryVideo, setShowVictoryVideo] = useState(false);
   const [finalGameScore, setFinalGameScore] = useState(0);
-  const { username } = useAuth();
+  const [remainingLifelines, setRemainingLifelines] = useState(0);
+  const [maxLifelines, setMaxLifelines] = useState(0);
+  const [puzzlesSolved, setPuzzlesSolved] = useState(0);
+  const { user } = useAuth();
   const navigate = useNavigate();
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const resetGameState = useCallback(() => {
+    setPuzzle(null);
+    setSelectedLevel(null);
+    setScore(0);
+    setGuess('');
+    setTimeRemaining(0);
+    setIsTimerActive(false);
+    setRemainingLifelines(0);
+    setMaxLifelines(0);
+    setPuzzlesSolved(0);
+    setShowTimeoutDialog(false);
+    setFinalGameScore(0);
+    setShowVictoryVideo(false);
+  }, []);
+
+  const submitScoreIfNeeded = useCallback(async (finalScore: number) => {
+    if (!selectedLevel || !user || finalScore <= 0) return;
+
+    try {
+      const response = await leaderboardApi.submitScore({
+        score: finalScore,
+        level: LEVEL_CONFIG[selectedLevel].label,
+        timeRemaining,
+        puzzlesSolved,
+      });
+
+      if (!response.success) {
+        toast.error(response.message || 'Failed to save your score to the leaderboard.');
+      }
+    } catch (error) {
+      console.error('Error submitting score:', error);
+      toast.error('Unable to save your score right now.');
+    }
+  }, [puzzlesSolved, selectedLevel, timeRemaining, user]);
+
+  const concludeGame = useCallback(async (
+    reason: 'quit' | 'time' | 'lifelines' | 'manual',
+    options?: { navigateToMenu?: boolean; celebrate?: boolean }
+  ) => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+    }
+    setIsTimerActive(false);
+
+    const finalScoreValue = score;
+
+    if (finalScoreValue > 0) {
+      await submitScoreIfNeeded(finalScoreValue);
+      setFinalGameScore(finalScoreValue);
+
+      const shouldCelebrate = options?.celebrate ?? (finalScoreValue >= 30 && reason !== 'time' && reason !== 'lifelines');
+      if (shouldCelebrate) {
+        setShowVictoryVideo(true);
+        return;
+      }
+
+      toast.success(`Game Over! Final Score: ${finalScoreValue} 🏆`);
+    } else if (reason !== 'quit') {
+      toast.error('Game Over! Better luck next time!');
+    }
+
+    resetGameState();
+
+    if (options?.navigateToMenu === false) {
+      return;
+    }
+
+    navigate('/menu');
+  }, [navigate, resetGameState, score, submitScoreIfNeeded]);
 
   // Timer effect
   useEffect(() => {
@@ -67,8 +140,15 @@ const GamePage: React.FC = () => {
   }, [isTimerActive, timeRemaining]);
 
   const handleLevelSelect = (level: DifficultyLevel) => {
+    const config = LEVEL_CONFIG[level];
     setSelectedLevel(level);
     setScore(0);
+    setGuess('');
+    setPuzzlesSolved(0);
+    setRemainingLifelines(config.lifelines);
+    setMaxLifelines(config.lifelines);
+    setFinalGameScore(0);
+    setShowVictoryVideo(false);
     loadNewPuzzle(level);
   };
 
@@ -78,6 +158,7 @@ const GamePage: React.FC = () => {
 
     setLoading(true);
     setIsTimerActive(false);
+    setShowTimeoutDialog(false);
     if (timerRef.current) clearTimeout(timerRef.current);
 
     try {
@@ -95,7 +176,22 @@ const GamePage: React.FC = () => {
 
   const handleTimeUp = () => {
     setIsTimerActive(false);
-    setShowTimeoutDialog(true);
+    if (timerRef.current) clearTimeout(timerRef.current);
+
+    if (selectedLevel === null) {
+      return;
+    }
+
+    const newRemaining = Math.max(remainingLifelines - 1, 0);
+    setRemainingLifelines(newRemaining);
+
+    if (newRemaining <= 0) {
+      toast.error("Time's up! No lifelines left.");
+      void concludeGame('time');
+    } else {
+      toast.error(`Time's up! Lifelines left: ${newRemaining}`);
+      setShowTimeoutDialog(true);
+    }
   };
 
   const handleTryAgain = () => {
@@ -105,7 +201,7 @@ const GamePage: React.FC = () => {
 
   const handleQuit = () => {
     setShowTimeoutDialog(false);
-    handleBackToMenu();
+    void concludeGame('quit');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -113,9 +209,9 @@ const GamePage: React.FC = () => {
     
     if (!puzzle || !selectedLevel) return;
     
-    const userGuess = parseInt(guess);
+    const userGuess = Number(guess);
     
-    if (isNaN(userGuess)) {
+    if (Number.isNaN(userGuess)) {
       toast.error('Please enter a valid number');
       return;
     }
@@ -131,59 +227,35 @@ const GamePage: React.FC = () => {
       const timeBonus = Math.floor(timeRemaining / 2);
       const earnedPoints = Math.floor((basePoints + timeBonus) * levelConfig.pointsMultiplier);
       const newScore = score + earnedPoints;
-      
+
       setScore(newScore);
+      setPuzzlesSolved(prev => prev + 1);
       toast.success(`🎉 Correct! +${earnedPoints} points! (Time bonus: ${timeBonus}) Score: ${newScore}`);
       
       setTimeout(() => {
         loadNewPuzzle();
       }, 1500);
     } else {
-      toast.error('Wrong answer! Try again! 🐵');
+      const newRemaining = Math.max(remainingLifelines - 1, 0);
+      setRemainingLifelines(newRemaining);
+
+      if (newRemaining <= 0) {
+        toast.error('Wrong answer! No lifelines left.');
+        void concludeGame('lifelines');
+      } else {
+        toast.error(`Wrong answer! Lifelines left: ${newRemaining}`);
+      }
     }
-  };
-
-  const saveToLeaderboard = (finalScore: number) => {
-    if (finalScore === 0 || !selectedLevel || !username) return;
-
-    const leaderboardData = JSON.parse(localStorage.getItem('leaderboard') || '[]');
-    
-    const newEntry = {
-      username,
-      score: finalScore,
-      level: LEVEL_CONFIG[selectedLevel].label,
-      date: new Date().toISOString(),
-    };
-
-    leaderboardData.push(newEntry);
-    leaderboardData.sort((a: any, b: any) => b.score - a.score);
-    const topScores = leaderboardData.slice(0, 20); // Keep top 20 scores
-    
-    localStorage.setItem('leaderboard', JSON.stringify(topScores));
   };
 
   const handleBackToMenu = () => {
-    setIsTimerActive(false);
-    if (timerRef.current) clearTimeout(timerRef.current);
-    
-    if (score > 0) {
-      saveToLeaderboard(score);
-      setFinalGameScore(score);
-      // Show victory video if score is decent (30+ points means at least 3 correct answers on easy)
-      if (score >= 30) {
-        setShowVictoryVideo(true);
-      } else {
-        toast.success(`Game Over! Final Score: ${score} 🏆`);
-        navigate('/menu');
-      }
-    } else {
-      navigate('/menu');
-    }
+    void concludeGame('manual');
   };
 
   const handleVictoryVideoEnd = () => {
     setShowVictoryVideo(false);
     toast.success(`Game Over! Final Score: ${finalGameScore} 🏆`);
+    resetGameState();
     navigate('/menu');
   };
 
@@ -197,8 +269,7 @@ const GamePage: React.FC = () => {
   };
 
   return (
-    <JungleLayout>
-      <Header />
+    <JungleLayout showHeader>
       <div className="flex min-h-[calc(100vh-80px)] items-center justify-center p-4">
         <div className="w-full max-w-4xl space-y-6">
           {/* Title and Score */}
@@ -214,6 +285,13 @@ const GamePage: React.FC = () => {
                 <div className="bg-card/60 backdrop-blur-sm rounded-xl px-5 py-2.5 border border-border/20 shadow-md">
                   <span className="text-foreground font-medium">
                     Score: <span className="text-primary font-bold">{score}</span>
+                  </span>
+                </div>
+                <div className="bg-card/60 backdrop-blur-sm rounded-xl px-5 py-2.5 border border-border/20 shadow-md">
+                  <span className="text-foreground font-medium">
+                    {maxLifelines === 0
+                      ? 'No lifelines'
+                      : <>Lifelines: <span className="text-primary font-bold">{remainingLifelines}</span>/<span>{maxLifelines}</span></>}
                   </span>
                 </div>
                 <div className={`${getTimerColor()} bg-card/60 backdrop-blur-sm rounded-xl px-5 py-2.5 border ${timeRemaining <= 10 ? 'animate-pulse border-red-500/50' : 'border-border/20'} font-bold shadow-md`}>
@@ -253,8 +331,9 @@ const GamePage: React.FC = () => {
                           <div className="space-y-2 text-sm text-foreground/70">
                             <p>{config.time}s</p>
                             <p>{config.pointsMultiplier}x Points</p>
+                            <p>{config.lifelines === 0 ? 'No lifelines' : `${config.lifelines} lifelines`}</p>
                           </div>
-                          <Button variant="outline" size="sm" className="w-full">
+                          <Button variant="default" size="sm" className="w-full">
                             Select
                           </Button>
                         </div>
@@ -264,7 +343,7 @@ const GamePage: React.FC = () => {
                 </div>
 
                 <div className="text-center pt-6 border-t border-border/20">
-                  <Button variant="ghost" onClick={() => navigate('/menu')}>
+                  <Button variant="default" onClick={() => navigate('/menu')}>
                     Back to Menu
                   </Button>
                 </div>
@@ -324,7 +403,7 @@ const GamePage: React.FC = () => {
                     </Button>
                     <Button
                       type="button"
-                      variant="outline"
+                      variant="default"
                       size="lg"
                       className="w-full"
                       onClick={handleBackToMenu}
@@ -337,14 +416,10 @@ const GamePage: React.FC = () => {
                 <div className="flex justify-center pt-4 border-t border-border/20">
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="default"
                     size="sm"
                     onClick={() => {
-                      setIsTimerActive(false);
-                      if (timerRef.current) clearTimeout(timerRef.current);
-                      if (score > 0) saveToLeaderboard(score);
-                      setSelectedLevel(null);
-                      setScore(0);
+                      void concludeGame('manual', { navigateToMenu: false, celebrate: false });
                     }}
                   >
                     Change Level
@@ -377,6 +452,9 @@ const GamePage: React.FC = () => {
               Your time has expired for this puzzle
               <span className="text-base font-bold text-primary mt-3 block">
                 Current Score: {score}
+              </span>
+              <span className="text-xs text-foreground/60 block">
+                Lifelines Remaining: {remainingLifelines}
               </span>
             </AlertDialogDescription>
           </AlertDialogHeader>

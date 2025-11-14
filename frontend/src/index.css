@@ -6,6 +6,14 @@
 All colors MUST be HSL.
 */
 
+@font-face {
+  font-family: "Jungle View";
+  src: url("/fonts/Jungle-View.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 @layer base {
   :root {
     /* Jungle Theme - Vibrant greens and nature */
@@ -105,7 +113,9 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground font-sans;
+    @apply bg-background text-foreground;
+    font-family: "Jungle View", "Trebuchet MS", "Comic Sans MS", cursive, system-ui, sans-serif;
+    letter-spacing: 0.08em;
     background: 
       radial-gradient(circle at 20% 50%, hsl(88 50% 50% / 0.1) 0%, transparent 50%),
       radial-gradient(circle at 80% 80%, hsl(45 98% 65% / 0.1) 0%, transparent 50%),
