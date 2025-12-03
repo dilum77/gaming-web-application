@@ -5,9 +5,9 @@ const Score = require('../models/Score');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 
-// @route   POST /api/leaderboard/score
-// @desc    Submit a new score
-// @access  Private
+//  POST /api/leaderboard/score
+//  Submit a new score
+//  Private
 router.post('/score', [
   auth,
   body('score').isInt({ min: 0 }).withMessage('Score must be a positive number'),

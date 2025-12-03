@@ -4,6 +4,7 @@ import { JungleLayout } from '@/components/JungleLayout';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { leaderboardApi, type LeaderboardEntry } from '@/services/api';
+import { UserAvatar } from '@/components/UserAvatar';
 
 type DifficultyFilter = 'Easy' | 'Medium' | 'Hard';
 
@@ -121,6 +122,9 @@ const HighScoresPage: React.FC = () => {
                       <div className="text-center space-y-3 mt-6 animate-scale-in" style={{ animationDelay: '0.1s' }}>
                         <div className="text-3xl">🥈</div>
                         <div className="bg-card/60 backdrop-blur-sm rounded-xl p-5 border border-border/20 shadow-md">
+                          <div className="flex justify-center mb-2">
+                            <UserAvatar username={leaderboard[1].username} size="md" />
+                          </div>
                           <p className="font-bold text-sm truncate">{leaderboard[1].username}</p>
                           <p className="text-primary text-xl font-bold mt-2">{leaderboard[1].score}</p>
                           <p className="text-xs text-foreground/60 mt-2 flex items-center justify-center gap-1">
@@ -133,6 +137,9 @@ const HighScoresPage: React.FC = () => {
                       <div className="text-center space-y-3 animate-scale-in" style={{ animationDelay: '0.2s' }}>
                         <div className="text-4xl">🥇</div>
                         <div className="bg-gradient-to-br from-primary/20 to-primary/10 backdrop-blur-sm rounded-xl p-5 border border-primary/30 shadow-lg">
+                          <div className="flex justify-center mb-2">
+                            <UserAvatar username={leaderboard[0].username} size="lg" />
+                          </div>
                           <p className="font-bold text-base truncate">{leaderboard[0].username}</p>
                           <p className="text-primary text-2xl font-bold mt-2">{leaderboard[0].score}</p>
                           <p className="text-xs text-foreground/60 mt-2 flex items-center justify-center gap-1">
@@ -145,6 +152,9 @@ const HighScoresPage: React.FC = () => {
                       <div className="text-center space-y-3 mt-6 animate-scale-in" style={{ animationDelay: '0.3s' }}>
                         <div className="text-3xl">🥉</div>
                         <div className="bg-card/60 backdrop-blur-sm rounded-xl p-5 border border-border/20 shadow-md">
+                          <div className="flex justify-center mb-2">
+                            <UserAvatar username={leaderboard[2].username} size="md" />
+                          </div>
                           <p className="font-bold text-sm truncate">{leaderboard[2].username}</p>
                           <p className="text-primary text-xl font-bold mt-2">{leaderboard[2].score}</p>
                           <p className="text-xs text-foreground/60 mt-2 flex items-center justify-center gap-1">
@@ -182,11 +192,14 @@ const HighScoresPage: React.FC = () => {
                                 {getMedalEmoji(index)}
                               </td>
                               <td className="px-4 md:px-6 py-4">
-                                <span className={`font-medium text-sm ${
-                                  entry.username === user?.username ? 'text-primary' : ''
-                                }`}>
-                                  {entry.username}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                  <UserAvatar username={entry.username} size="sm" />
+                                  <span className={`font-medium text-sm ${
+                                    entry.username === user?.username ? 'text-primary' : ''
+                                  }`}>
+                                    {entry.username}
+                                  </span>
+                                </div>
                               </td>
                               <td className="px-4 md:px-6 py-4 text-center">
                                 <span className="text-primary font-bold text-base">{entry.score}</span>

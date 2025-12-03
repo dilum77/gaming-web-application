@@ -3,6 +3,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useAudio } from '@/context/AudioContext';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { UserAvatar } from '@/components/UserAvatar';
 import { useNavigate } from 'react-router-dom';
 import { Volume2, VolumeX } from 'lucide-react';
 
@@ -19,11 +20,14 @@ export const Header: React.FC = () => {
   return (
     <header className="w-full px-4 pt-4">
       <div className="relative mx-auto flex max-w-5xl items-center justify-between rounded-full bg-white/10 backdrop-blur-[18px] border border-white/15 shadow-[0_18px_45px_rgba(0,0,0,0.35)] px-4 sm:px-6 py-2 sm:py-3">
-        <div className="text-sm sm:text-base font-semibold text-white/90">
+        <div className="flex items-center gap-2 sm:gap-3 text-sm sm:text-base font-semibold text-white/90">
           {user ? (
-            <span className="text-primary font-bold tracking-wide uppercase">
-              {user.username}
-            </span>
+            <>
+              <UserAvatar username={user.username} size="sm" />
+              <span className="text-primary font-bold tracking-wide uppercase">
+                {user.username}
+              </span>
+            </>
           ) : (
             <span className="text-white/70 tracking-wide uppercase">Monkey Mind Puzzle</span>
           )}

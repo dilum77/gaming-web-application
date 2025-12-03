@@ -112,7 +112,7 @@ export const bananaApi = {
   },
 };
 
-// ==================== BACKEND API - AUTHENTICATION ====================
+// BACKEND API - AUTHENTICATION
 
 export const authApi = {
   // Register a new user
